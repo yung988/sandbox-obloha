@@ -1,10 +1,11 @@
 import * as THREE from 'three'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react'
 import { Canvas, extend, useFrame } from '@react-three/fiber'
 import { Image, ScrollControls, useScroll, Billboard, Text } from '@react-three/drei'
 import { suspend } from 'suspend-react'
 import { generate } from 'random-words'
 import { easing, geometry } from 'maath'
+import { fetchBlobImages } from './utils/blobImages'
 
 extend(geometry)
 const inter = import('@pmndrs/assets/fonts/inter_regular.woff')
@@ -40,8 +41,21 @@ function Scene({ children, ...props }) {
 
 function Cards({ category, data, from = 0, len = Math.PI * 2, radius = 5.25, onPointerOver, onPointerOut, ...props }) {
   const [hovered, hover] = useState(null)
+  const [blobImages, setBlobImages] = useState([])
   const amount = Math.round(len * 22)
   const textPosition = from + (amount / 2 / amount) * len
+
+  useEffect(() => {
+    fetchBlobImages().then(setBlobImages)
+  }, [])
+
+  const getImageUrl = (index) => {
+    if (blobImages.length > 0) {
+      return blobImages[index % blobImages.length]
+    }
+    return `/img${Math.floor(index % 10) + 1}.jpg`
+  }
+
   return (
     <group {...props}>
       <Billboard position={[Math.sin(textPosition) * radius * 1.4, 0.5, Math.cos(textPosition) * radius * 1.4]}>
@@ -60,7 +74,7 @@ function Cards({ category, data, from = 0, len = Math.PI * 2, radius = 5.25, onP
             rotation={[0, Math.PI / 2 + angle, 0]}
             active={hovered !== null}
             hovered={hovered === i}
-            url={`/img${Math.floor(i % 10) + 1}.jpg`}
+            url={getImageUrl(i)}
           />
         )
       })}
@@ -84,18 +98,33 @@ function Card({ url, active, hovered, ...props }) {
 
 function ActiveCard({ hovered, ...props }) {
   const ref = useRef()
+  const [blobImages, setBlobImages] = useState([])
   const name = useMemo(() => generate({ exactly: 2 }).join(' '), [hovered])
-  useLayoutEffect(() => void (ref.current.material.zoom = 0.8), [hovered])
+  
+  useEffect(() => {
+    fetchBlobImages().then(setBlobImages)
+  }, [])
+
+  const getImageUrl = (index) => {
+    if (blobImages.length > 0 && index !== null) {
+      return blobImages[index % blobImages.length]
+    }
+    return `/img${Math.floor((index || 0) % 10) + 1}.jpg`
+  }
+
+  useLayoutEffect(() => void (ref.current?.material && (ref.current.material.zoom = 0.8)), [hovered])
   useFrame((state, delta) => {
-    easing.damp(ref.current.material, 'zoom', 1, 0.5, delta)
-    easing.damp(ref.current.material, 'opacity', hovered !== null, 0.3, delta)
+    if (ref.current?.material) {
+      easing.damp(ref.current.material, 'zoom', 1, 0.5, delta)
+      easing.damp(ref.current.material, 'opacity', hovered !== null, 0.3, delta)
+    }
   })
   return (
     <Billboard {...props}>
       <Text font={suspend(inter).default} fontSize={0.5} position={[2.15, 3.85, 0]} anchorX="left" color="black">
         {hovered !== null && `${name}\n${hovered}`}
       </Text>
-      <Image ref={ref} transparent radius={0.3} position={[0, 1.5, 0]} scale={[3.5, 1.618 * 3.5, 0.2, 1]} url={`/img${Math.floor(hovered % 10) + 1}.jpg`} />
+      <Image ref={ref} transparent radius={0.3} position={[0, 1.5, 0]} scale={[3.5, 1.618 * 3.5, 0.2, 1]} url={getImageUrl(hovered)} />
     </Billboard>
   )
 }
