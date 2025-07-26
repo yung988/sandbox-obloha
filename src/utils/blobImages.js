@@ -1,35 +1,36 @@
-import { list } from '@vercel/blob';
-
 // Cache for blob images
 let blobImagesCache = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Fetch all blob images
+// Fetch all blob images via API endpoint
 export async function fetchBlobImages() {
   try {
     // Check if we have cached data that's still fresh
     if (blobImagesCache && Date.now() - cacheTimestamp < CACHE_DURATION) {
+      console.log(`Using cached ${blobImagesCache.length} blob images`);
       return blobImagesCache;
     }
 
-    console.log('Fetching blob images...');
-    const { blobs } = await list();
+    console.log('Fetching blob images via API...');
+    const response = await fetch('/api/images');
     
-    // Filter for image files and sort them
-    const imageBlobs = blobs
-      .filter(blob => blob.contentType?.startsWith('image/'))
-      .sort((a, b) => a.pathname.localeCompare(b.pathname))
-      .map(blob => blob.url);
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const imageUrls = data.images || [];
 
     // Cache the results
-    blobImagesCache = imageBlobs;
+    blobImagesCache = imageUrls;
     cacheTimestamp = Date.now();
 
-    console.log(`Loaded ${imageBlobs.length} blob images`);
-    return imageBlobs;
+    console.log(`Loaded ${imageUrls.length} blob images from API`);
+    return imageUrls;
   } catch (error) {
     console.error('Error fetching blob images:', error);
+    // Fallback to empty array - components will use local images
     return [];
   }
 }
@@ -49,5 +50,19 @@ export async function getBlobImageUrl(index) {
   return `/img${(index % 10) + 1}.jpg`;
 }
 
-// Hook for React components to use blob images (moved to component level)
-// Use fetchBlobImages() directly in your components with useState and useEffect
+// Batch loading for performance
+export async function fetchBlobImagesBatch(batchSize = 50) {
+  try {
+    const allImages = await fetchBlobImages();
+    const batches = [];
+    
+    for (let i = 0; i < allImages.length; i += batchSize) {
+      batches.push(allImages.slice(i, i + batchSize));
+    }
+    
+    return batches;
+  } catch (error) {
+    console.error('Error creating image batches:', error);
+    return [];
+  }
+}
