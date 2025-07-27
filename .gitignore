@@ -68,3 +68,10 @@ coverage/
 .yarn-integrity
 .vercel
 .env*.local
+
+# Images - stored in Vercel Blob Storage
+public/img*.jpg
+public/img*.jpeg
+public/img*.png
+public/img*.gif
+public/img*.webp

@@ -25,7 +25,7 @@ function Scene({ children, ...props }) {
   useFrame((state, delta) => {
     ref.current.rotation.y = -scroll.offset * (Math.PI * 2) // Rotate contents
     state.events.update() // Raycasts every frame rather than on pointer-move
-    easing.damp3(state.camera.position, [-state.pointer.x * 2, state.pointer.y * 2 + 4.5, 9], 0.3, delta)
+    easing.damp3(state.camera.position, [-state.pointer.x * 2, state.pointer.y * 2 + 4.5, 5 + state.scroll.offset * 25], 0.3, delta)
     state.camera.lookAt(0, 0, 0)
   })
   return (
@@ -46,14 +46,29 @@ function Cards({ category, data, from = 0, len = Math.PI * 2, radius = 5.25, onP
   const textPosition = from + (amount / 2 / amount) * len
 
   useEffect(() => {
-    fetchBlobImages().then(setBlobImages)
+    console.log('🔄 Načítám blob obrázky...')
+    fetchBlobImages()
+      .then(images => {
+        console.log('✅ Blob obrázky načteny:', images.length, 'obrázků')
+        console.log('📝 První 3 URL:', images.slice(0, 3))
+        setBlobImages(images)
+      })
+      .catch(error => {
+        console.error('❌ Chyba při načítání blob obrázků:', error)
+      })
   }, [])
 
   const getImageUrl = (index) => {
+    console.log(`🖼️ getImageUrl(${index}): blobImages.length=${blobImages.length}`)
     if (blobImages.length > 0) {
-      return blobImages[index % blobImages.length]
+      const url = blobImages[index % blobImages.length]
+      console.log(`✅ Používám blob URL pro index ${index}:`, url)
+      return url
     }
-    return `/img${Math.floor(index % 10) + 1}.jpg`
+    // Fallback: použít všech 362 lokálních obrázků místo pouze prvních 10
+    const fallbackUrl = `/img${(index % 362) + 1}.jpg`
+    console.log(`⚠️ Používám fallback URL pro index ${index}:`, fallbackUrl)
+    return fallbackUrl
   }
 
   return (
@@ -86,8 +101,8 @@ function Card({ url, active, hovered, ...props }) {
   const ref = useRef()
   useFrame((state, delta) => {
     const f = hovered ? 1.4 : active ? 1.25 : 1
-    easing.damp3(ref.current.position, [0, hovered ? 0.25 : 0, 0], 0.1, delta)
-    easing.damp3(ref.current.scale, [1.618 * f, 1 * f, 1], 0.15, delta)
+    // Make image square
+    easing.damp3(ref.current.scale, [1.4 * f, 1.4 * f, 1], 0.15, delta)
   })
   return (
     <group {...props}>
@@ -102,14 +117,28 @@ function ActiveCard({ hovered, ...props }) {
   const name = useMemo(() => generate({ exactly: 2 }).join(' '), [hovered])
   
   useEffect(() => {
-    fetchBlobImages().then(setBlobImages)
+    console.log('🔄 ActiveCard: Načítám blob obrázky...')
+    fetchBlobImages()
+      .then(images => {
+        console.log('✅ ActiveCard: Blob obrázky načteny:', images.length, 'obrázků')
+        setBlobImages(images)
+      })
+      .catch(error => {
+        console.error('❌ ActiveCard: Chyba při načítání blob obrázků:', error)
+      })
   }, [])
 
   const getImageUrl = (index) => {
+    console.log(`🖼️ ActiveCard getImageUrl(${index}): blobImages.length=${blobImages.length}`)
     if (blobImages.length > 0 && index !== null) {
-      return blobImages[index % blobImages.length]
+      const url = blobImages[index % blobImages.length]
+      console.log(`✅ ActiveCard: Používám blob URL pro index ${index}:`, url)
+      return url
     }
-    return `/img${Math.floor((index || 0) % 10) + 1}.jpg`
+    // Fallback: použít všech 362 lokálních obrázků místo pouze prvních 10
+    const fallbackUrl = `/img${((index || 0) % 362) + 1}.jpg`
+    console.log(`⚠️ ActiveCard: Používám fallback URL pro index ${index}:`, fallbackUrl)
+    return fallbackUrl
   }
 
   useLayoutEffect(() => void (ref.current?.material && (ref.current.material.zoom = 0.8)), [hovered])
